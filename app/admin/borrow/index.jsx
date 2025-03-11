@@ -1,127 +1,133 @@
-import { View, Text, FlatList, StyleSheet, TouchableOpacity } from "react-native";
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { useState, useEffect, useCallback } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter, useFocusEffect } from "expo-router";
+import FlashMessage, { showMessage } from "react-native-flash-message";
 
-const availableBooks = [
-  { id: "1", title: "The Great Gatsby", author: "F. Scott Fitzgerald", isbn: "9780743273565" },
-  { id: "2", title: "1984", author: "George Orwell", isbn: "9780451524935" },
-  { id: "3", title: "To Kill a Mockingbird", author: "Harper Lee", isbn: "9780061120084" },
-];
-
-export default function BorrowScreen() {
+export default function BorrowIndex() {
   const router = useRouter();
-  const [books, setBooks] = useState(availableBooks);
+  const [borrowedBooks, setBorrowedBooks] = useState([]);
 
-  const borrowBook = (id) => {
-    setBooks(books.filter(book => book.id !== id));
-    alert("📚 Book Borrowed Successfully!");
+  // Fetch borrowed books from storage
+  const fetchBorrowedBooks = async () => {
+    const storedBorrows = await AsyncStorage.getItem("borrowedBooks");
+    if (storedBorrows) {
+      setBorrowedBooks(JSON.parse(storedBorrows));
+    }
+  };
+
+  // Refresh list when returning to this screen
+  useFocusEffect(
+    useCallback(() => {
+      fetchBorrowedBooks();
+    }, [])
+  );
+
+  const handleDelete = async (id) => {
+    Alert.alert("Delete Confirmation", "Are you sure you want to delete this borrow record?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        onPress: async () => {
+          try {
+            const storedBorrows = await AsyncStorage.getItem("borrowedBooks");
+            let borrowedBooks = storedBorrows ? JSON.parse(storedBorrows) : [];
+
+            borrowedBooks = borrowedBooks.filter((b) => b.id !== id);
+            await AsyncStorage.setItem("borrowedBooks", JSON.stringify(borrowedBooks));
+
+            setBorrowedBooks(borrowedBooks);
+            showMessage({ message: "Borrow record deleted!", type: "success", icon: "success" });
+          } catch (error) {
+            Alert.alert("Error", "Failed to delete record.");
+          }
+        },
+      },
+    ]);
   };
 
   return (
-    <View style={styles.outerContainer}>
-      <View style={styles.container}>
-        <Text style={styles.title}>📚 Available Books</Text>
+    <View style={styles.container}>
+      <FlashMessage position="top" />
 
-        {books.length === 0 ? (
-          <Text style={styles.noBooks}>No Books Available</Text>
-        ) : (
-          <FlatList
-            data={books}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <View style={styles.bookCard}>
-                <Text style={styles.bookTitle}>{item.title}</Text>
-                <Text style={styles.bookText}>Author: {item.author}</Text>
-                <Text style={styles.bookText}>ISBN: {item.isbn}</Text>
-
-                <TouchableOpacity 
-                  style={styles.borrowButton} 
-                  onPress={() => borrowBook(item.id)}
-                >
-                  <Text style={styles.buttonText}>Borrow</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          />
-        )}
-
-        {/* ➕ Add Borrow Button */}
-        <TouchableOpacity 
-          style={styles.addButton} 
-          onPress={() => router.push("/admin/books/add")} // ✅ Fixed path
+      {/* Top Button Row */}
+      <View style={styles.buttonRow}>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => router.push("/admin/borrow/add")}
         >
-          <Text style={styles.buttonText}>➕ Add Borrow</Text>
+          <Text style={styles.addButtonText}>+ Borrow a Book</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.returnButton}
+          onPress={() => router.push("/admin/borrow/return")}
+        >
+          <Text style={styles.buttonText}>Return Book</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.historyButton}
+          onPress={() => router.push("/admin/borrow/history")}
+        >
+          <Text style={styles.buttonText}>History</Text>
         </TouchableOpacity>
       </View>
+
+      <Text style={styles.title}>📚 Borrowed Books</Text>
+
+      {borrowedBooks.length === 0 ? (
+        <Text style={styles.noBooks}>No borrowed books found.</Text>
+      ) : (
+        <FlatList
+          data={borrowedBooks}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.bookItem}>
+              <Text style={styles.bookTitle}>{item.title} by {item.author}</Text>
+              <Text>Borrowed by: {item.borrower}</Text>
+              <Text>Contact: {item.contactNumber}</Text>
+              <Text>Due Date: {item.dueDate}</Text>
+
+              <View style={styles.buttonGroup}>
+                <TouchableOpacity
+                  style={styles.editButton}
+                  onPress={() => router.push(`/admin/borrow/edit?id=${item.id}`)}
+                >
+                  <Text style={styles.buttonText}>Edit</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={() => handleDelete(item.id)}
+                >
+                  <Text style={styles.buttonText}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  outerContainer: { 
-    flex: 1, 
-    justifyContent: "center", 
-    alignItems: "center", 
-    backgroundColor: "#F5F7FA" 
-  },
-  container: { 
-    width: "60%", 
-    backgroundColor: "#FFF", 
-    padding: 20, 
-    borderRadius: 10, 
-    shadowColor: "#000", 
-    shadowOpacity: 0.1, 
-    shadowOffset: { width: 0, height: 2 }, 
-    elevation: 3 
-  },
-  title: { 
-    fontSize: 22, 
-    fontWeight: "bold",
-    marginBottom: 15,
-    textAlign: "center"
-  },
-  noBooks: { 
-    fontSize: 18, 
-    color: "gray", 
-    textAlign: "center" 
-  },
-  bookCard: { 
-    padding: 15, 
-    backgroundColor: "#FFF", 
-    borderRadius: 10, 
-    marginVertical: 8, 
-    shadowColor: "#000", 
-    shadowOpacity: 0.1, 
-    shadowOffset: { width: 0, height: 2 }, 
-    elevation: 3 
-  },
-  bookTitle: { 
-    fontSize: 18, 
-    fontWeight: "bold", 
-    marginBottom: 5 
-  },
-  bookText: { 
-    fontSize: 14, 
-    color: "#333" 
-  },
-  borrowButton: { 
-    backgroundColor: "#008123", 
-    paddingVertical: 8, 
-    paddingHorizontal: 15, 
-    borderRadius: 5, 
-    marginTop: 10, 
-    alignItems: "center"
-  },
-  addButton: { 
-    backgroundColor: "#008123", 
-    paddingVertical: 10, 
-    borderRadius: 5, 
-    marginTop: 15, 
-    alignItems: "center" 
-  },
-  buttonText: { 
-    color: "#FFF", 
-    fontSize: 16, 
-    fontWeight: "600" 
-  }
+  container: { flex: 1, padding: 20, backgroundColor: "#F5F7FA" },
+  title: { fontSize: 22, fontWeight: "bold", marginBottom: 20, textAlign: "center" },
+  noBooks: { textAlign: "center", fontSize: 16, color: "gray", marginTop: 20 },
+  bookItem: { backgroundColor: "#FFF", padding: 15, borderRadius: 8, marginVertical: 8 },
+  bookTitle: { fontSize: 18, fontWeight: "bold" },
+  buttonGroup: { flexDirection: "row", justifyContent: "space-between", marginTop: 10 },
+
+  // Buttons
+  buttonRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 20 },
+  addButton: { backgroundColor: "#28a745", padding: 12, borderRadius: 5, flex: 1, marginRight: 5, alignItems: "center" },
+  returnButton: { backgroundColor: "#007bff", padding: 12, borderRadius: 5, flex: 1, marginRight: 5, alignItems: "center" },
+  historyButton: { backgroundColor: "#6c757d", padding: 12, borderRadius: 5, flex: 1, alignItems: "center" },
+
+  editButton: { backgroundColor: "#007bff", padding: 8, borderRadius: 5, flex: 1, marginRight: 5 },
+  deleteButton: { backgroundColor: "#dc3545", padding: 8, borderRadius: 5, flex: 1, marginLeft: 5 },
+  buttonText: { color: "#FFF", textAlign: "center", fontWeight: "bold" },
+  addButtonText: { color: "#FFF", fontSize: 16, fontWeight: "bold" },
 });

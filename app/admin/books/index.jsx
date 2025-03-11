@@ -1,127 +1,159 @@
-import { View, Text, FlatList, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
+import React from "react";
 
-const availableBooks = [
-  { id: "1", title: "The Great Gatsby", author: "F. Scott Fitzgerald", isbn: "9780743273565" },
-  { id: "2", title: "1984", author: "George Orwell", isbn: "9780451524935" },
-  { id: "3", title: "To Kill a Mockingbird", author: "Harper Lee", isbn: "9780061120084" },
-];
-
-export default function BorrowScreen() {
+export default function BooksList() {
   const router = useRouter();
-  const [books, setBooks] = useState(availableBooks);
+  const [books, setBooks] = useState([]);
 
-  const borrowBook = (id) => {
-    setBooks(books.filter(book => book.id !== id));
-    alert("📚 Book Borrowed Successfully!");
+  // Load books from AsyncStorage
+  const loadBooks = async () => {
+    try {
+      const storedBooks = await AsyncStorage.getItem("books");
+      setBooks(storedBooks ? JSON.parse(storedBooks) : []);
+    } catch (error) {
+      console.error("Error loading books:", error);
+    }
+  };
+
+  // Reload books when the page is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      loadBooks();
+    }, [])
+  );
+
+  // Handle delete book
+  const deleteBook = async (id) => {
+    Alert.alert(
+      "Delete Book",
+      "Are you sure you want to delete this book?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const updatedBooks = books.filter((book) => book.id !== id);
+              await AsyncStorage.setItem("books", JSON.stringify(updatedBooks));
+              setBooks(updatedBooks); // Update UI
+            } catch (error) {
+              console.error("Error deleting book:", error);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
-    <View style={styles.outerContainer}>
-      <View style={styles.container}>
-        <Text style={styles.title}>📚 Available Books</Text>
+    <View style={styles.container}>
+      <Text style={styles.title}>📚 Book List</Text>
+      <FlatList
+        data={books}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <View style={styles.bookItem}>
+            <Text style={styles.bookTitle}>{item.title}</Text>
+            <Text style={styles.bookDetails}>Author: {item.author}</Text>
+            <Text style={styles.bookDetails}>ISBN: {item.isbn}</Text>
 
-        {books.length === 0 ? (
-          <Text style={styles.noBooks}>No Books Available</Text>
-        ) : (
-          <FlatList
-            data={books}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <View style={styles.bookCard}>
-                <Text style={styles.bookTitle}>{item.title}</Text>
-                <Text style={styles.bookText}>Author: {item.author}</Text>
-                <Text style={styles.bookText}>ISBN: {item.isbn}</Text>
+            {/* Edit Button */}
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={() => router.push({ pathname: "/admin/books/edit", params: { id: item.id } })}
+            >
+              <Text style={styles.editButtonText}>✏ Edit</Text>
+            </TouchableOpacity>
 
-                <TouchableOpacity 
-                  style={styles.borrowButton} 
-                  onPress={() => borrowBook(item.id)}
-                >
-                  <Text style={styles.buttonText}>Borrow</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          />
+            {/* Delete Button */}
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={() => deleteBook(item.id)}
+            >
+              <Text style={styles.deleteButtonText}>🗑 Delete</Text>
+            </TouchableOpacity>
+          </View>
         )}
+      />
 
-        {/* ➕ Add Borrow Button */}
-        <TouchableOpacity 
-          style={styles.addButton} 
-          onPress={() => router.push("/admin/books/add")} // ✅ Fixed path
-        >
-          <Text style={styles.buttonText}>➕ Add Borrow</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Add Book Button */}
+      <TouchableOpacity style={styles.addButton} onPress={() => router.push("/admin/books/add")}>
+        <Text style={styles.addButtonText}>➕ Add Book</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
+// Styles
 const styles = StyleSheet.create({
-  outerContainer: { 
-    flex: 1, 
-    justifyContent: "center", 
-    alignItems: "center", 
-    backgroundColor: "#F5F7FA" 
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: "#F5F7FA",
   },
-  container: { 
-    width: "60%", 
-    backgroundColor: "#FFF", 
-    padding: 20, 
-    borderRadius: 10, 
-    shadowColor: "#000", 
-    shadowOpacity: 0.1, 
-    shadowOffset: { width: 0, height: 2 }, 
-    elevation: 3 
-  },
-  title: { 
-    fontSize: 22, 
+  title: {
+    fontSize: 22,
     fontWeight: "bold",
-    marginBottom: 15,
-    textAlign: "center"
+    marginBottom: 20,
+    textAlign: "center",
   },
-  noBooks: { 
-    fontSize: 18, 
-    color: "gray", 
-    textAlign: "center" 
+  bookItem: {
+    padding: 15,
+    backgroundColor: "#FFF",
+    borderRadius: 8,
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
-  bookCard: { 
-    padding: 15, 
-    backgroundColor: "#FFF", 
-    borderRadius: 10, 
-    marginVertical: 8, 
-    shadowColor: "#000", 
-    shadowOpacity: 0.1, 
-    shadowOffset: { width: 0, height: 2 }, 
-    elevation: 3 
+  bookTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
   },
-  bookTitle: { 
-    fontSize: 18, 
-    fontWeight: "bold", 
-    marginBottom: 5 
+  bookDetails: {
+    fontSize: 14,
+    color: "#555",
   },
-  bookText: { 
-    fontSize: 14, 
-    color: "#333" 
+  editButton: {
+    marginTop: 10,
+    backgroundColor: "#007bff",
+    padding: 8,
+    borderRadius: 5,
+    alignItems: "center",
   },
-  borrowButton: { 
-    backgroundColor: "#008123", 
-    paddingVertical: 8, 
-    paddingHorizontal: 15, 
-    borderRadius: 5, 
-    marginTop: 10, 
-    alignItems: "center"
+  editButtonText: {
+    color: "#FFF",
+    fontWeight: "600",
   },
-  addButton: { 
-    backgroundColor: "#008123", 
-    paddingVertical: 10, 
-    borderRadius: 5, 
-    marginTop: 15, 
-    alignItems: "center" 
+  deleteButton: {
+    marginTop: 10,
+    backgroundColor: "#d9534f",
+    padding: 8,
+    borderRadius: 5,
+    alignItems: "center",
   },
-  buttonText: { 
-    color: "#FFF", 
-    fontSize: 16, 
-    fontWeight: "600" 
-  }
+  deleteButtonText: {
+    color: "#FFF",
+    fontWeight: "600",
+  },
+  addButton: {
+    backgroundColor: "#008123",
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 15,
+  },
+  addButtonText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
 });
+

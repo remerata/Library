@@ -1,95 +1,133 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { useState } from "react";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { v4 as uuidv4 } from "uuid";
+import FlashMessage, { showMessage } from "react-native-flash-message";
+import 'react-native-get-random-values'; // Fix for UUID issue
 
 export default function AddBorrow() {
-  const [name, setName] = useState("");
-  const [bookTitle, setBookTitle] = useState("");
-  const [borrowDate, setBorrowDate] = useState("");
   const router = useRouter();
+  const [title, setTitle] = useState("");
+  const [author, setAuthor] = useState("");
+  const [isbn, setIsbn] = useState("");
+  const [borrower, setBorrower] = useState("");
+  const [contactNumber, setContactNumber] = useState("");
+  const [dueDate, setDueDate] = useState("");
 
-  const handleSubmit = () => {
-    if (!name || !bookTitle || !borrowDate) {
-      alert("⚠️ Please fill in all fields!");
+  const handleBorrowBook = async () => {
+    if (!title || !author || !isbn || !borrower || !contactNumber || !dueDate) {
+      Alert.alert("Error", "All fields are required!");
       return;
     }
-    alert(`📚 ${bookTitle} borrowed by ${name} on ${borrowDate}`);
-    router.push("/borrow");
+    
+    try {
+      const newBorrow = { id: uuidv4(), title, author, isbn, borrower, contactNumber, dueDate };
+      const storedBorrows = await AsyncStorage.getItem("borrowedBooks");
+      const borrowedBooks = storedBorrows ? JSON.parse(storedBorrows) : [];
+      
+      borrowedBooks.unshift(newBorrow); // Add new borrow entry at the top
+      await AsyncStorage.setItem("borrowedBooks", JSON.stringify(borrowedBooks));
+
+      // Show success message
+      showMessage({
+        message: "Book borrowed successfully!",
+        type: "success",
+        icon: "success",
+      });
+
+      // Navigate back after a short delay
+      setTimeout(() => router.back(), 1500);
+    } catch (error) {
+      console.error("Error borrowing book:", error);
+      Alert.alert("Error", "Failed to borrow book.");
+    }
   };
 
   return (
-    <View style={styles.outerContainer}>
-      <View style={styles.container}>
-        <Text style={styles.title}>➕ Add Borrow</Text>
+    <View style={styles.container}>
+      {/* Flash Message Component */}
+      <FlashMessage position="top" />
 
-        <TextInput
-          placeholder="Borrower's Name"
-          value={name}
-          onChangeText={setName}
-          style={styles.input}
-        />
+      <Text style={styles.title}>📖 Borrow a Book</Text>
 
-        <TextInput
-          placeholder="Book Title"
-          value={bookTitle}
-          onChangeText={setBookTitle}
-          style={styles.input}
-        />
+      <TextInput 
+        placeholder="Book Title" 
+        value={title} 
+        onChangeText={setTitle} 
+        style={styles.input} 
+      />
+      <TextInput 
+        placeholder="Author" 
+        value={author} 
+        onChangeText={setAuthor} 
+        style={styles.input} 
+      />
+      <TextInput 
+        placeholder="ISBN" 
+        value={isbn} 
+        onChangeText={setIsbn} 
+        style={styles.input} 
+      />
+      <TextInput 
+        placeholder="Borrower's Name" 
+        value={borrower} 
+        onChangeText={setBorrower} 
+        style={styles.input} 
+      />
+      <TextInput 
+        placeholder="Contact Number" 
+        value={contactNumber} 
+        onChangeText={setContactNumber} 
+        keyboardType="phone-pad"
+        style={styles.input} 
+      />
+      <TextInput 
+        placeholder="Due Date (YYYY-MM-DD)" 
+        value={dueDate} 
+        onChangeText={setDueDate} 
+        style={styles.input} 
+      />
 
-        <TextInput
-          placeholder="Borrow Date (YYYY-MM-DD)"
-          value={borrowDate}
-          onChangeText={setBorrowDate}
-          style={styles.input}
-        />
-
-        <TouchableOpacity style={styles.addButton} onPress={handleSubmit}>
-          <Text style={styles.buttonText}>📖 Confirm Borrow</Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity style={styles.button} onPress={handleBorrowBook}>
+        <Text style={styles.buttonText}>Borrow Book</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
+// Styles
 const styles = StyleSheet.create({
-  outerContainer: { 
-    flex: 1, 
-    justifyContent: "center", 
-    alignItems: "center", 
-    backgroundColor: "#F5F7FA" 
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: "#F5F7FA",
+    justifyContent: "center",
   },
-  container: { 
-    width: "60%", 
-    backgroundColor: "#FFF", 
-    padding: 20, 
-    borderRadius: 10, 
-    shadowColor: "#000", 
-    shadowOpacity: 0.1, 
-    shadowOffset: { width: 0, height: 2 }, 
-    elevation: 3 
+  title: {
+    fontSize: 22,
+    fontWeight: "bold",
+    marginBottom: 20,
+    textAlign: "center",
   },
-  title: { 
-    fontSize: 22, 
-    fontWeight: "bold", 
-    marginBottom: 15,
-    textAlign: "center"
+  input: {
+    borderWidth: 1,
+    padding: 10,
+    marginVertical: 8,
+    borderRadius: 5,
+    borderColor: "#CCC",
+    backgroundColor: "#FFF",
   },
-  input: { 
-    borderWidth: 1, 
-    borderColor: "#ccc", 
-    padding: 10, 
-    borderRadius: 5, 
-    marginBottom: 10 
+  button: {
+    backgroundColor: "#008123",
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 15,
   },
-  addButton: { 
-    backgroundColor: "#008123", 
-    paddingVertical: 10, 
-    borderRadius: 5, 
-    alignItems: "center" 
+  buttonText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "600",
   },
-  buttonText: { 
-    color: "#FFF", 
-    fontSize: 16, 
-    fontWeight: "600" 
-  }
 });

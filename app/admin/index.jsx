@@ -13,13 +13,10 @@ export default function AdminDashboard() {
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.button} onPress={() => router.push("/admin/borrow")}>
-        <Text style={styles.buttonText}>Manage Borrow Records</Text>
+        <Text style={styles.buttonText}>Manage Borrows</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.button} onPress={() => router.push("/admin/users")}>
-        <Text style={styles.buttonText}>Manage Users</Text>
-      </TouchableOpacity>
-    </View>
+          </View>
   );
 }
 

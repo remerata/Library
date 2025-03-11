@@ -17,7 +17,7 @@ export default function HomeScreen() {
         <Text style={styles.buttonText}>Admin</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.button} onPress={() => router.push("/user")}>
+      <TouchableOpacity style={styles.button} onPress={() => router.push("/admin/user")}>
         <Text style={styles.buttonText}>User</Text>
       </TouchableOpacity>
     </View>
