@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
 import { useRouter } from "expo-router";
 
 export default function AdminDashboard() {
@@ -6,8 +6,10 @@ export default function AdminDashboard() {
 
   return (
     <View style={styles.container}>
+      {/* Logo at the top */}
+      <Image source={require("../../image/logo.png")} style={styles.logo} />
       <Text style={styles.title}>Admin Dashboard</Text>
-      
+
       <TouchableOpacity style={styles.button} onPress={() => router.push("/admin/books")}>
         <Text style={styles.buttonText}>Manage Books</Text>
       </TouchableOpacity>
@@ -15,8 +17,7 @@ export default function AdminDashboard() {
       <TouchableOpacity style={styles.button} onPress={() => router.push("/admin/borrow")}>
         <Text style={styles.buttonText}>Manage Borrows</Text>
       </TouchableOpacity>
-
-          </View>
+    </View>
   );
 }
 
@@ -27,6 +28,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#F5F7FA",
     padding: 20,
+  },
+  logo: {
+    width: 120, // Adjust width as needed
+    height: 120, // Adjust height as needed
+    marginBottom: 20,
   },
   title: {
     fontSize: 24,
