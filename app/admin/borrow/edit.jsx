@@ -49,7 +49,7 @@ export default function EditBorrow() {
       <Text style={styles.title}>✏️ Edit Borrowed Book</Text>
       <TextInput value={borrowData.title} style={styles.input} editable={false} />
       <TextInput value={borrowData.author} style={styles.input} editable={false} />
-      <TextInput value={borrowData.borrower} onChangeText={(text) => setBorrowData({ ...borrowData, borrower: text })} style={styles.input} />
+      <TextInput value={borrowData.borrowerName} onChangeText={(text) => setBorrowData({ ...borrowData, borrower: text })} style={styles.input} />
       <TextInput value={borrowData.contactNumber} onChangeText={(text) => setBorrowData({ ...borrowData, contactNumber: text })} style={styles.input} />
       <TextInput value={borrowData.dueDate} onChangeText={(text) => setBorrowData({ ...borrowData, dueDate: text })} style={styles.input} />
       <TouchableOpacity style={styles.button} onPress={handleUpdateBorrow}>

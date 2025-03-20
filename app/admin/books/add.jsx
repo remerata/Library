@@ -1,40 +1,67 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Alert, 
+  Image 
+} from "react-native";
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { v4 as uuidv4 } from "uuid";
 import FlashMessage, { showMessage } from "react-native-flash-message";
+import * as ImagePicker from "expo-image-picker";
 import 'react-native-get-random-values'; // Fix for UUID issue
-
 
 export default function AddBook() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
   const [isbn, setIsbn] = useState("");
+  const [image, setImage] = useState(null); // State for image
+
+  // Function to pick an image
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission Denied", "You need to allow access to your photos.");
+      return;
+    }
+
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setImage(result.assets[0].uri);
+    }
+  };
 
   const handleAddBook = async () => {
     if (!title || !author || !isbn) {
       Alert.alert("Error", "All fields are required!");
       return;
     }
-    
+
     try {
-      const newBook = { id: uuidv4(), title, author, isbn };
+      const newBook = { id: uuidv4(), title, author, isbn, image };
       const storedBooks = await AsyncStorage.getItem("books");
       const books = storedBooks ? JSON.parse(storedBooks) : [];
-      
+
       books.unshift(newBook); // Add book at the top for instant UI update
       await AsyncStorage.setItem("books", JSON.stringify(books));
 
-      // Show success message
       showMessage({
         message: "Book added successfully!",
         type: "success",
         icon: "success",
       });
 
-      // Navigate back after a short delay
       setTimeout(() => router.back(), 1500);
     } catch (error) {
       console.error("Error adding book:", error);
@@ -44,7 +71,6 @@ export default function AddBook() {
 
   return (
     <View style={styles.container}>
-      {/* Flash Message Component */}
       <FlashMessage position="top" />
 
       <Text style={styles.title}>➕ Add New Book</Text>
@@ -66,6 +92,15 @@ export default function AddBook() {
         onChangeText={setIsbn} 
         style={styles.input} 
       />
+
+      {/* Upload Image Button */}
+      <TouchableOpacity style={styles.uploadButton} onPress={pickImage}>
+        <Text style={styles.uploadText}>📸 Upload Image</Text>
+      </TouchableOpacity>
+
+      {/* Display selected image */}
+      {image && <Image source={{ uri: image }} style={styles.image} />}
+
       <TouchableOpacity style={styles.button} onPress={handleAddBook}>
         <Text style={styles.buttonText}>Add Book</Text>
       </TouchableOpacity>
@@ -93,6 +128,25 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     borderColor: "#CCC",
     backgroundColor: "#FFF",
+  },
+  uploadButton: {
+    backgroundColor: "#2196F3",
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginVertical: 10,
+  },
+  uploadText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  image: {
+    width: 150,
+    height: 150,
+    alignSelf: "center",
+    marginVertical: 10,
+    borderRadius: 8,
   },
   button: {
     backgroundColor: "#008123",

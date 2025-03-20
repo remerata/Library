@@ -1,116 +1,162 @@
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, Alert } from "react-native";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import { View, Alert, StyleSheet, Image, ScrollView } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { TextInput, Button, Text, Card } from "react-native-paper";
+import moment from "moment";
 
-export default function BorrowBook() {
+const Borrow = () => {
   const { bookId } = useLocalSearchParams();
-  const router = useRouter();
-  const [book, setBook] = useState(null);
+  const [selectedBook, setSelectedBook] = useState(null);
   const [borrowerName, setBorrowerName] = useState("");
   const [contactNumber, setContactNumber] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const router = useRouter();
 
-  // Fetch book details
   useEffect(() => {
     const fetchBookDetails = async () => {
-      try {
-        const storedBooks = await AsyncStorage.getItem("books");
-        const books = storedBooks ? JSON.parse(storedBooks) : [];
-        const selectedBook = books.find((b) => b.id.toString() === bookId);
-        setBook(selectedBook);
-      } catch (error) {
-        console.error("Error fetching book:", error);
+      const storedBooks = await AsyncStorage.getItem("books");
+      const books = storedBooks ? JSON.parse(storedBooks) : [];
+      const book = books.find((b) => b.id === bookId);
+
+      if (!book) {
+        Alert.alert("Error", "Book not found");
+        router.back();
+      } else {
+        setSelectedBook(book);
       }
     };
 
     fetchBookDetails();
   }, [bookId]);
 
-  // Handle Borrow Book
   const handleBorrow = async () => {
     if (!borrowerName || !contactNumber || !dueDate) {
-      Alert.alert("Missing Details", "Please fill in all fields before borrowing.");
+      Alert.alert("Error", "All fields are required.");
       return;
     }
 
-    try {
-      // Store borrow information in AsyncStorage (you can update this logic based on your database)
-      const borrowedBooks = await AsyncStorage.getItem("borrowedBooks");
-      const borrowedList = borrowedBooks ? JSON.parse(borrowedBooks) : [];
-
-      const newBorrowedBook = {
-        ...book,
-        borrowerName,
-        contactNumber,
-        dueDate,
-        borrowedAt: new Date().toISOString(),
-      };
-
-      borrowedList.push(newBorrowedBook);
-      await AsyncStorage.setItem("borrowedBooks", JSON.stringify(borrowedList));
-
-      Alert.alert("Success", "Book borrowed successfully!");
-      router.push("/user/index"); // Navigate back to the book list
-    } catch (error) {
-      console.error("Error borrowing book:", error);
+    if (!moment(dueDate, "YYYY-MM-DD", true).isValid() || moment(dueDate).isBefore(moment(), "day")) {
+      Alert.alert("Error", "Enter a valid future date (YYYY-MM-DD).");
+      return;
     }
+
+    const storedBorrowed = await AsyncStorage.getItem("borrowedBooks");
+    const borrowedBooks = storedBorrowed ? JSON.parse(storedBorrowed) : [];
+
+    if (borrowedBooks.some((b) => b.id === selectedBook.id)) {
+      Alert.alert("Error", "This book is already borrowed.");
+      return;
+    }
+
+    borrowedBooks.push({
+      id: selectedBook.id,
+      title: selectedBook.title,
+      author: selectedBook.author,
+      borrowerName,
+      contactNumber,
+      dueDate,
+    });
+
+    await AsyncStorage.setItem("borrowedBooks", JSON.stringify(borrowedBooks));
+
+    const storedBooks = await AsyncStorage.getItem("books");
+    const books = storedBooks ? JSON.parse(storedBooks) : [];
+    const updatedBooks = books.map((b) =>
+      b.id === selectedBook.id ? { ...b, status: "Not Available" } : b
+    );
+
+    await AsyncStorage.setItem("books", JSON.stringify(updatedBooks));
+
+    Alert.alert("Success", "Book borrowed successfully!");
+    router.back();
   };
 
-  if (!book) return <Text style={styles.loading}>Loading book details...</Text>;
+  if (!selectedBook) return null;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Borrow Book</Text>
-      <Text style={styles.bookTitle}>{book.title} by {book.author}</Text>
-      <Text>Genre: {book.genre}</Text>
-      <Text>ISBN: {book.isbn}</Text>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Card style={styles.card}>
+        <Card.Content>
+          {selectedBook.image && (
+            <Image source={{ uri: selectedBook.image }} style={styles.bookImage} />
+          )}
+          <Text style={styles.title}>{selectedBook.title}</Text>
+          <Text style={styles.author}>by {selectedBook.author}</Text>
+          <Text style={styles.genre}>Genre: {selectedBook.genre}</Text>
+          <Text style={styles.isbn}>ISBN: {selectedBook.isbn}</Text>
+        </Card.Content>
+      </Card>
 
-      {/* Borrower Name */}
-      <TextInput
-        style={styles.input}
-        placeholder="Enter borrower's name"
-        value={borrowerName}
-        onChangeText={setBorrowerName}
-      />
+      <TextInput label="Your Name" value={borrowerName} onChangeText={setBorrowerName} style={styles.input} />
+      <TextInput label="Contact Number" keyboardType="phone-pad" value={contactNumber} onChangeText={setContactNumber} style={styles.input} />
+      <TextInput label="Due Date (YYYY-MM-DD)" value={dueDate} onChangeText={setDueDate} style={styles.input} />
 
-      {/* Contact Number */}
-      <TextInput
-        style={styles.input}
-        placeholder="Enter contact number"
-        keyboardType="phone-pad"
-        value={contactNumber}
-        onChangeText={setContactNumber}
-      />
-
-      {/* Due Date */}
-      <TextInput
-        style={styles.input}
-        placeholder="Enter due date (YYYY-MM-DD)"
-        value={dueDate}
-        onChangeText={setDueDate}
-      />
-
-      {/* Confirm Borrow */}
-      <TouchableOpacity style={styles.borrowButton} onPress={handleBorrow}>
-        <Text style={styles.buttonText}>Confirm Borrow</Text>
-      </TouchableOpacity>
-
-      {/* Cancel Button */}
-      <TouchableOpacity style={styles.cancelButton} onPress={() => router.back()}>
-        <Text style={styles.buttonText}>Cancel</Text>
-      </TouchableOpacity>
-    </View>
+      <Button mode="contained" onPress={handleBorrow} style={styles.button}>
+        Confirm Borrow
+      </Button>
+    </ScrollView>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#F5F7FA", alignItems: "center" },
-  title: { fontSize: 22, fontWeight: "bold", marginBottom: 20 },
-  bookTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
-  input: { width: "100%", padding: 10, borderWidth: 1, borderColor: "#ccc", borderRadius: 5, marginBottom: 10 },
-  borrowButton: { backgroundColor: "#008123", padding: 12, borderRadius: 5, marginTop: 10 },
-  cancelButton: { backgroundColor: "#d9534f", padding: 12, borderRadius: 5, marginTop: 10 },
-  buttonText: { color: "#FFF", fontWeight: "bold", textAlign: "center" },
-  loading: { fontSize: 16, textAlign: "center", marginTop: 20 },
+  container: {
+    padding: 20,
+    backgroundColor: "#F5F7FA",
+    flexGrow: 1,
+    alignItems: "center",
+  },
+  card: {
+    width: "100%",
+    backgroundColor: "#FFF",
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 20,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 5,
+    elevation: 4,
+  },
+  bookImage: {
+    width: 120,
+    height: 180,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "bold",
+    textAlign: "center",
+    color: "#333",
+    marginBottom: 5,
+  },
+  author: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+  },
+  genre: {
+    fontSize: 14,
+    color: "#555",
+    marginTop: 5,
+  },
+  isbn: {
+    fontSize: 14,
+    color: "#777",
+    marginTop: 5,
+  },
+  input: {
+    width: "100%",
+    marginBottom: 10,
+    backgroundColor: "#FFF",
+  },
+  button: {
+    width: "100%",
+    marginTop: 10,
+    backgroundColor: "#008123",
+  },
 });
+
+export default Borrow;

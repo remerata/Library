@@ -1,19 +1,20 @@
-import { View, Text, TouchableOpacity, Alert, StyleSheet } from "react-native";
-import { useEffect, useState } from "react";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import { View, Text, Button, Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
-export default function DeleteBook() {
-  const router = useRouter();
-  const { id } = useLocalSearchParams(); // Get book ID from URL
+const DeleteBook = () => {
+  const { id } = useLocalSearchParams();
   const [book, setBook] = useState(null);
+  const router = useRouter();
 
   useEffect(() => {
-    const fetchBook = async () => {
+    const loadBook = async () => {
       try {
         const storedBooks = await AsyncStorage.getItem("books");
         const books = storedBooks ? JSON.parse(storedBooks) : [];
         const foundBook = books.find((b) => b.id === id);
+
         if (foundBook) {
           setBook(foundBook);
         } else {
@@ -21,51 +22,63 @@ export default function DeleteBook() {
           router.back();
         }
       } catch (error) {
-        console.error("Error fetching book:", error);
+        console.error("Error loading book:", error);
       }
     };
 
-    if (id) fetchBook();
+    if (id) loadBook();
   }, [id]);
 
   const handleDelete = async () => {
-    try {
-      const storedBooks = await AsyncStorage.getItem("books");
-      const books = storedBooks ? JSON.parse(storedBooks) : [];
-      const updatedBooks = books.filter((b) => b.id !== id);
-      await AsyncStorage.setItem("books", JSON.stringify(updatedBooks));
-
-      Alert.alert("Deleted", "Book removed successfully!", [
-        { text: "OK", onPress: () => router.back() }
-      ]);
-    } catch (error) {
-      console.error("Error deleting book:", error);
-      Alert.alert("Error", "Failed to delete book.");
+    if (!book) {
+      Alert.alert("Error", "No book selected.");
+      return;
     }
+
+    Alert.alert(
+      "Confirm Delete",
+      `Are you sure you want to delete "${book.title}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Yes, Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const storedBooks = await AsyncStorage.getItem("books");
+              let books = storedBooks ? JSON.parse(storedBooks) : [];
+
+              // Remove book with matching ID
+              books = books.filter((b) => b.id !== id);
+
+              await AsyncStorage.setItem("books", JSON.stringify(books));
+
+              Alert.alert("Deleted", "Book removed successfully!", [
+                { text: "OK", onPress: () => router.back() },
+              ]);
+            } catch (error) {
+              console.error("Error deleting book:", error);
+              Alert.alert("Error", "Failed to delete book.");
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>🗑 Delete Book</Text>
-      {book && (
+    <View>
+      {book ? (
         <>
-          <Text style={styles.bookTitle}>{book.title}</Text>
-          <Text style={styles.bookDetails}>Author: {book.author}</Text>
-          <Text style={styles.bookDetails}>ISBN: {book.isbn}</Text>
-          <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-            <Text style={styles.deleteButtonText}>Confirm Delete</Text>
-          </TouchableOpacity>
+          <Text>Are you sure you want to delete "{book.title}"?</Text>
+          <Button title="Delete" color="red" onPress={handleDelete} />
+          <Button title="Cancel" color="gray" onPress={() => router.back()} />
         </>
+      ) : (
+        <Text>Loading book details...</Text>
       )}
     </View>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#F5F7FA", justifyContent: "center" },
-  title: { fontSize: 22, fontWeight: "bold", marginBottom: 20, textAlign: "center" },
-  bookTitle: { fontSize: 18, fontWeight: "bold", textAlign: "center", marginBottom: 10 },
-  bookDetails: { fontSize: 14, color: "#555", textAlign: "center" },
-  deleteButton: { backgroundColor: "#d9534f", paddingVertical: 12, borderRadius: 8, alignItems: "center", marginTop: 15 },
-  deleteButtonText: { color: "#FFF", fontSize: 16, fontWeight: "600" },
-});
+export default DeleteBook;

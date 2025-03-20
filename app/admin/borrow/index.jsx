@@ -10,9 +10,14 @@ export default function BorrowIndex() {
 
   // Fetch borrowed books from storage
   const fetchBorrowedBooks = async () => {
-    const storedBorrows = await AsyncStorage.getItem("borrowedBooks");
-    if (storedBorrows) {
-      setBorrowedBooks(JSON.parse(storedBorrows));
+    try {
+      const storedBorrows = await AsyncStorage.getItem("borrowedBooks");
+      const parsedBorrows = storedBorrows ? JSON.parse(storedBorrows) : [];
+  
+      setBorrowedBooks(Array.isArray(parsedBorrows) ? parsedBorrows : []);
+    } catch (error) {
+      console.error("Error fetching borrowed books:", error);
+      setBorrowedBooks([]);
     }
   };
 
@@ -54,7 +59,7 @@ export default function BorrowIndex() {
       <View style={styles.buttonRow}>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => router.push("/admin/borrow/add")}
+          onPress={() => router.push("/admin/user")}
         >
           <Text style={styles.addButtonText}>+ Borrow a Book</Text>
         </TouchableOpacity>
@@ -65,13 +70,6 @@ export default function BorrowIndex() {
         >
           <Text style={styles.buttonText}>Return Book</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.historyButton}
-          onPress={() => router.push("/admin/borrow/history")}
-        >
-          <Text style={styles.buttonText}>History</Text>
-        </TouchableOpacity>
       </View>
 
       <Text style={styles.title}>📚 Borrowed Books</Text>
@@ -81,13 +79,13 @@ export default function BorrowIndex() {
       ) : (
         <FlatList
           data={borrowedBooks}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.id.toString()}
           renderItem={({ item }) => (
             <View style={styles.bookItem}>
               <Text style={styles.bookTitle}>{item.title} by {item.author}</Text>
-              <Text>Borrowed by: {item.borrower}</Text>
-              <Text>Contact: {item.contactNumber}</Text>
-              <Text>Due Date: {item.dueDate}</Text>
+              <Text>Borrowed by: {item.borrowerName || "Unknown"}</Text>
+              <Text>Contact: {item.contactNumber || "N/A"}</Text>
+              <Text>Due Date: {item.dueDate || "Not specified"}</Text>
 
               <View style={styles.buttonGroup}>
                 <TouchableOpacity
